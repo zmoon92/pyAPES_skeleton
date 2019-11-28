@@ -262,7 +262,6 @@ def plot_timeseries_xr(results, variables,
     plt.xlim([results[0].date.values[0], results[0].date.values[-1]])
     if limits:
         ymin = np.nanmin([np.nanmin(val) for val in values_all])
-        print(ymin)
         plt.ylim(ymin, ymax)
     plt.ylabel(unit)
     plt.setp(plt.gca().axes.get_xticklabels(), visible=xticks)

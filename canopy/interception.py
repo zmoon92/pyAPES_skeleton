@@ -4,7 +4,7 @@
     :synopsis: APES-model component
 .. moduleauthor:: Kersti Haahti
 
-Describes interteption in multilayer canopy.
+Describes interception in multilayer canopy.
 Based on MatLab implementation by Samuli Launiainen.
 
 Created on Thu Mar 01 13:21:29 2018
