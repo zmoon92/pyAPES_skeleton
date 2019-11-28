@@ -193,13 +193,16 @@ def read_forcing(forc_filename, start_time=None, end_time=None,
 
     return Forc
 
-def read_results(outputfiles):
+def read_results(outputfiles, keep_empty_variables=True):
     """
     Opens simulation results netcdf4 dataset in xarray
     (or multiple in list of xarrays)
     Args:
         outputfiles (str or list of str):
             outputfilename or list of outputfilenames
+        keep_empty_vars (bool)
+            whether to save empty variables in the file
+        
     Returns:
         results (xarray or list of xarrays):
             simulation results from given outputfile(s)
@@ -218,7 +221,17 @@ def read_results(outputfiles):
         result.coords['soil'] = result.soil_z.values
         result.coords['canopy'] = result.canopy_z.values
 #        result.coords['planttype'] = ['pine','spruce','decid','shrubs']
+
+        if not keep_empty_variables:
+            isnull = result.isnull().all()
+            vns = [vn for vn in isnull.variables]
+            for vn in vns:
+                if isnull[vn].all() == True:
+                    result = result.drop(vn)
+                    # print(f'dropped {vn}')
+
         results.append(result)
+
 
     if len(results) == 1:
         return results[0]
