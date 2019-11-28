@@ -185,8 +185,11 @@ def plot_timeseries_pt(results, variable, unit_conversion={'unit':None, 'convers
                        stack=stack, cum=cum,
                        unit_conversion=unit_conversion, labels=labels, legend=legend, limits=limits)
 
-def plot_timeseries_xr(results, variables, unit_conversion = {'unit':None, 'conversion':1.0},
-                       colors=default, xticks=True, stack=False, cum=False, labels=None, limits=True, legend=True):
+def plot_timeseries_xr(results, variables, 
+                       unit_conversion = {'unit':None, 'conversion':1.0},
+                       colors=default, xticks=True, stack=False, 
+                       cum=False, labels=None, limits=True, legend=True,
+                       ):
     """
     Plot timeseries from xarray results.
     Args:
@@ -201,6 +204,13 @@ def plot_timeseries_xr(results, variables, unit_conversion = {'unit':None, 'conv
         cum (boolean): plot yearly cumulative timeseries
         labels (list of str): labels corresponding to results[0], results[1],...
     """
+    # first check the dataset for the variable name(s)
+    vns_results = [vn for vn in results.variables]
+    vns = variables if isinstance(variables, list) else [variables] 
+    for vn in vns:
+        if vn not in vns_results:
+            raise ValueError(f'{vn} was not found in the dataset')
+
     if type(results) != list:
         if 'simulation' in results.dims:
             results = [results.sel(simulation=i) for i in results.simulation.values]
@@ -247,11 +257,13 @@ def plot_timeseries_xr(results, variables, unit_conversion = {'unit':None, 'conv
     else:
         for i in range(len(values_all)):
             plt.plot(results[0].date.values, values_all[i], color=colors[i], linewidth=1.5, label=labels[i])
-        ymax = max([max(val) for val in values_all])
+        ymax = np.nanmax([np.nanmax(val) for val in values_all])
     plt.title(title)
     plt.xlim([results[0].date.values[0], results[0].date.values[-1]])
     if limits:
-        plt.ylim(min([min(val) for val in values_all]), ymax)
+        ymin = np.nanmin([np.nanmin(val) for val in values_all])
+        print(ymin)
+        plt.ylim(ymin, ymax)
     plt.ylabel(unit)
     plt.setp(plt.gca().axes.get_xticklabels(), visible=xticks)
     plt.xlabel('')
