@@ -28,6 +28,9 @@ from tools.utilities import tridiag
 from matplotlib import pyplot as plt
 from .constants import DEG_TO_RAD, DEG_TO_KELVIN, STEFAN_BOLTZMANN, SPECIFIC_HEAT_AIR, EPS
 logger = logging.getLogger(__name__)
+from .spectra import distribute_crt_quantities
+
+from 
 
 class Radiation(object):
     r""" Describes distribution of within canopy radiation.
@@ -91,17 +94,37 @@ class Radiation(object):
         """
 
         radtype = parameters['radiation_type'].upper()
-        if radtype == 'PAR' or radtype == 'NIR':
+        nband = parameters['nband_to_distribute_rad']  # TODO: add this param
+        banddefns = dict(PAR=(0.4, 0.7), NIR=(0.7, 4.0))  # um 
+
+        if radtype in ['PAR', 'NIR']:
+
+            banddefn = banddefns[radtype]
+
+            if nband > 1:
+                Idr0 = 0
+                Idf0 = 0
+                logger.info(f'Distributing band {radtype} into {nband} equally spaced bands')
+                rL, tL, sL, Idr, Idf = distribute_crt_quantities(nband, banddefn,
+                    Idr0, Idf0, 
+                )
+
+            else:
+                albL = self.alb[radtype]  # leaf "albedo"
+                Idr = forcing[radtype]['direct']
+                Idf = forcing[radtype]['diffuse']
+                albS = parameters['ff_albedo'][radtype]  # soil albedo
+
 
             if self.SWmodel == 'ZHAOQUALLS':
                 SWb, SWd, SWu, Q_sl, Q_sh, q_sl, q_sh, q_gr, f_sl, alb = canopy_sw_ZhaoQualls(
                     parameters['LAIz'],
                     self.clump, self.leaf_angle,
                     forcing['zenith_angle'],
-                    forcing[radtype]['direct'],
-                    forcing[radtype]['diffuse'],
-                    self.alb[radtype],
-                    parameters['ff_albedo'][radtype])
+                    Idr,
+                    Idf,
+                    albL,
+                    albS)
 
             results = {'sunlit':{'incident': Q_sl, 'absorbed': q_sl, 'fraction': f_sl},
                        'shaded':{'incident': Q_sh, 'absorbed': q_sh},
