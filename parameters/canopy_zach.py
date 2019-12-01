@@ -40,7 +40,8 @@ radiation = {'clump': 0.7,  # clumping index [-]
              'leaf_angle': 1.0,  # leaf-angle distribution [-]
              'Par_alb': 0.12,  # shoot Par-albedo [-]
              'Nir_alb': 0.55,  # shoot NIR-albedo [-]
-             'leaf_emi': 0.98
+             'leaf_emi': 0.98,              
+             'nband_to_distribute_rad': 4,  # how many sub bands to use in the SW CRT calculations 
              }
 
 # --- interception --- 

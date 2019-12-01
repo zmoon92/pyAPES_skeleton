@@ -30,8 +30,6 @@ from .constants import DEG_TO_RAD, DEG_TO_KELVIN, STEFAN_BOLTZMANN, SPECIFIC_HEA
 logger = logging.getLogger(__name__)
 from .spectra import distribute_crt_quantities
 
-from 
-
 class Radiation(object):
     r""" Describes distribution of within canopy radiation.
     """
@@ -95,42 +93,73 @@ class Radiation(object):
 
         radtype = parameters['radiation_type'].upper()
         nband = parameters['nband_to_distribute_rad']  # TODO: add this param
-        banddefns = dict(PAR=(0.4, 0.7), NIR=(0.7, 4.0))  # um 
+        banddefns = dict(PAR=(0.4, 0.7), NIR=(0.7, 4.0))  # band edges (um) 
 
         if radtype in ['PAR', 'NIR']:
 
             banddefn = banddefns[radtype]
 
+            Idr0 = forcing[radtype]['direct']
+            Idf0 = forcing[radtype]['diffuse']
+            albL0 = self.alb[radtype]  # leaf effective albedo
+            albS0 = parameters['ff_albedo'][radtype]  # soil albedo
+
             if nband > 1:
-                Idr0 = 0
-                Idf0 = 0
                 logger.info(f'Distributing band {radtype} into {nband} equally spaced bands')
-                rL, tL, sL, Idr, Idf = distribute_crt_quantities(nband, banddefn,
-                    Idr0, Idf0, 
+                Idr, Idf, albL, albS = distribute_crt_quantities(nband, banddefn,
+                    Idr0, Idf0, albL0, albS0
                 )
-
             else:
-                albL = self.alb[radtype]  # leaf "albedo"
-                Idr = forcing[radtype]['direct']
-                Idf = forcing[radtype]['diffuse']
-                albS = parameters['ff_albedo'][radtype]  # soil albedo
+                Idr = [Idr0]
+                Idf = [Idf0]
+                albL = [albL0]
+                albS = [albS0]
 
+            # if self.SWmodel == 'ZHAOQUALLS':
+            nlev = parameters['LAIz'].size
+            SWb  = np.zeros((nlev, nband, ))
+            SWd  = np.zeros((nlev, nband, ))
+            SWu  = np.zeros((nlev, nband, ))
+            Q_sl = np.zeros((nlev, nband, ))
+            Q_sh = np.zeros((nlev, nband, ))
+            q_sl = np.zeros((nlev, nband, ))
+            q_sh = np.zeros((nlev, nband, ))
+            q_gr = np.zeros((nlev, nband, ))
+            alb  = np.zeros((nlev, nband, ))
+            for i, (Idr_i, Idf_i, albL_i, albS_i) in enumerate(zip(Idr, Idf, albL, albS)):
 
-            if self.SWmodel == 'ZHAOQUALLS':
-                SWb, SWd, SWu, Q_sl, Q_sh, q_sl, q_sh, q_gr, f_sl, alb = canopy_sw_ZhaoQualls(
+                SWb_i, SWd_i, SWu_i, Q_sl_i, Q_sh_i, \
+                q_sl_i, q_sh_i, q_gr_i, \
+                f_sl, alb_i = canopy_sw_ZhaoQualls(
                     parameters['LAIz'],
                     self.clump, self.leaf_angle,
                     forcing['zenith_angle'],
-                    Idr,
-                    Idf,
-                    albL,
-                    albS)
+                    Idr_i,
+                    Idf_i,
+                    albL_i,
+                    albS_i)
 
-            results = {'sunlit':{'incident': Q_sl, 'absorbed': q_sl, 'fraction': f_sl},
-                       'shaded':{'incident': Q_sh, 'absorbed': q_sh},
-                       'ground': SWb[0] + SWd[0],
-                       'up': SWu,
-                       'down': SWb + SWd}
+                SWb[:,i] = SWb_i
+                SWd[:,i] = SWd_i
+                SWu[:,i] = SWu_i
+                Q_sl[:,i] = Q_sl_i
+                Q_sh[:,i] = Q_sh_i
+                q_sl[:,i] = q_sl_i
+                q_sh[:,i] = q_sh_i
+                q_gr[:,i] = q_gr_i
+                alb[:,i] = alb_i
+
+            # results = {'sunlit':{'incident': Q_sl, 'absorbed': q_sl, 'fraction': f_sl},
+            #            'shaded':{'incident': Q_sh, 'absorbed': q_sh},
+            #            'ground': SWb[0] + SWd[0],
+            #            'up': SWu,
+            #            'down': SWb + SWd}
+
+            results = {'sunlit':{'incident': Q_sl.sum(axis=1), 'absorbed': q_sl.sum(axis=1), 'fraction': f_sl},
+                       'shaded':{'incident': Q_sh.sum(axis=1), 'absorbed': q_sh.sum(axis=1)},
+                       'ground': SWb.sum(axis=1)[0] + SWd.sum(axis=1)[0],
+                       'up': SWu.sum(axis=1),
+                       'down': SWb.sum(axis=1) + SWd.sum(axis=1)}
 
             # ADD OTHER MODELS??
 

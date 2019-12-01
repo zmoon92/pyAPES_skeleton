@@ -102,6 +102,8 @@ class CanopyModel(object):
         self.dz = self.z[1] - self.z[0]  # gridsize [m]
         self.ones = np.ones(len(self.z))  # dummy
 
+        self.nband_to_distribute_rad = cpara['radiation'].get('nband_to_distribute_rad', 1)
+
         # --- switches ---
         self.Switch_Eflow = cpara['ctr']['Eflow'] # True assumes constant U/ustar at upper boundary
         self.Switch_WMA = cpara['ctr']['WMA']   # True solves scalar profiles
@@ -244,6 +246,7 @@ class CanopyModel(object):
         radiation_params = {
             'ff_albedo': ff_albedo,
             'LAIz': self.lad * self.dz,
+            'nband_to_distribute_rad': self.nband_to_distribute_rad, 
         }
 
         # --- PAR ---
