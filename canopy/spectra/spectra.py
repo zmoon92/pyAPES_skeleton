@@ -207,7 +207,8 @@ def distribute_crt_quantities(nbands, banddefn,
     #> first light
     wl0 = ds_solar['wl']
     wl_in_bound = (wl0 >= wla) & (wl0 <= wlb)
-    ds = ds_solar.sel(dict(wl=wl_in_bound))
+    #ds = ds_solar.sel(dict(wl=wl_in_bound))
+    ds = ds_solar.sel(dict(wl=wl0[wl_in_bound]))  # could also use .where(wl_in_bound, drop=True)
     x = ds['wl']
     SI_dr = ds['SI_dr']
     SI_df = ds['SI_df']
@@ -219,7 +220,8 @@ def distribute_crt_quantities(nbands, banddefn,
     #> now leaf properties
     wl0 = ds_leaf['wl']
     wl_in_bound = (wl0 >= wla) & (wl0 <= wlb)
-    ds = ds_leaf.sel(dict(wl=wl_in_bound))
+    #ds = ds_leaf.sel(dict(wl=wl_in_bound))
+    ds = ds_leaf.sel(dict(wl=wl0[wl_in_bound]))
     x = ds['wl']
     r = ds['r']
     t = ds['t']
@@ -230,24 +232,45 @@ def distribute_crt_quantities(nbands, banddefn,
     #> now soil
     wl0 = ds_soil['wl']
     wl_in_bound = (wl0 >= wla) & (wl0 <= wlb)
-    ds = ds_soil.sel(dict(wl=wl_in_bound))
+    #ds = ds_soil.sel(dict(wl=wl_in_bound))
+    ds = ds_soil.sel(dict(wl=wl0[wl_in_bound]))
     x = ds['wl']
     rho_soil = ds['rho_soil']
     # rho_soil_new = smear_trapz_interp(x, rho_soil, x12_new)
     albS_new = smear_trapz_interp(x, rho_soil, x12_new)
 
     #> correct the re-binned spectra for consistency with the input values
+
+    def _correct_for_sum(new_array, orig_scalar):
+        c = orig_scalar/new_array.sum()  # correction factor
+        corrected = c * new_array
+        assert( np.isclose(corrected.sum(), orig_scalar) )
+        return corrected
+
+    def _mean_over_x(array):
+        """even with variable grid"""
+        return (array*dx_new).sum() / dx_new.sum()
+
+    def _correct_for_mean(new_array, orig_scalar):
+        c = orig_scalar / _mean_over_x(new_array)
+        corrected = c * new_array
+        assert( np.isclose(_mean_over_x(corrected), orig_scalar) )
+        return corrected
+
     input_values = [Idr0, Idf0, albL0, albS0]
     rebinned_spectra = [I_dr_new, I_df_new, albL_new, albS_new]
     rebinned_spectra_corrected = []
     for input_value, rebinned_spectrum in zip(input_values, rebinned_spectra):
-        c = input_value/rebinned_spectrum.sum()  # correction factor
-        #print(f'correction factor: {c}')
-        corrected = c * rebinned_spectrum
-        assert( np.isclose(corrected.sum(), input_value) )
+        if input_value in [Idr0, Idf0]:
+            #print('correcting for sum')
+            corrected = _correct_for_sum(rebinned_spectrum, input_value)
+        else:
+            #print('correcting for mean')
+            corrected = _correct_for_mean(rebinned_spectrum, input_value)
         rebinned_spectra_corrected.append(corrected)
 
     # return Idr, Idf, albL, albS
     return rebinned_spectra_corrected
+
 
 

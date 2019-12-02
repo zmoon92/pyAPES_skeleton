@@ -105,7 +105,7 @@ class Radiation(object):
             albS0 = parameters['ff_albedo'][radtype]  # soil albedo
 
             if nband > 1:
-                logger.info(f'Distributing band {radtype} into {nband} equally spaced bands')
+                logger.debug(f'Distributing band {radtype} into {nband} equally spaced bands')
                 Idr, Idf, albL, albS = distribute_crt_quantities(nband, banddefn,
                     Idr0, Idf0, albL0, albS0
                 )
