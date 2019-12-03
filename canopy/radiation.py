@@ -55,7 +55,8 @@ class Radiation(object):
         self.leaf_emi = p['leaf_emi']
 
         # model functions to use
-        self.SWmodel = 'ZHAOQUALLS'
+        self.SWmodel = p.get('SWmodel', 'ZHAOQUALLS')
+
         self.LWmodel = 'ZHAOQUALLS'
 
         logger.info('Shortwave radiation model: %s', self.SWmodel)
@@ -120,25 +121,48 @@ class Radiation(object):
             SWb  = np.zeros((nlev, nband, ))
             SWd  = np.zeros((nlev, nband, ))
             SWu  = np.zeros((nlev, nband, ))
-            Q_sl = np.zeros((nlev, nband, ))
+            Q_sl = np.zeros((nlev, nband, ))  # incident (W/m^2)
             Q_sh = np.zeros((nlev, nband, ))
-            q_sl = np.zeros((nlev, nband, ))
+            q_sl = np.zeros((nlev, nband, ))  # absorbed (W/(m^2 leaf))
             q_sh = np.zeros((nlev, nband, ))
-            q_gr = np.zeros((nlev, nband, ))
-            alb  = np.zeros((nlev, nband, ))
+            q_gr = np.zeros((nband, ))  # absorbed by ground
+            alb  = np.zeros((nband, ))  # canopy albedo
             for i, (Idr_i, Idf_i, albL_i, albS_i) in enumerate(zip(Idr, Idf, albL, albS)):
 
-                SWb_i, SWd_i, SWu_i, Q_sl_i, Q_sh_i, \
-                q_sl_i, q_sh_i, q_gr_i, \
-                f_sl, alb_i = canopy_sw_ZhaoQualls(
-                    parameters['LAIz'],
-                    self.clump, self.leaf_angle,
-                    forcing['zenith_angle'],
-                    Idr_i,
-                    Idf_i,
-                    albL_i,
-                    albS_i)
+                logger.debug(f'Going into scheme: LeafAlbedo: {albL_i}, SoilAlbedo: {albS_i}')
 
+                if self.SWmodel.upper() == 'ZHAOQUALLS':
+                    SWb_i, SWd_i, SWu_i, \
+                    Q_sl_i, Q_sh_i, \
+                    q_sl_i, q_sh_i, q_gr_i, \
+                    f_sl, alb_i = canopy_sw_ZhaoQualls(
+                        parameters['LAIz'],
+                        self.clump, self.leaf_angle,
+                        forcing['zenith_angle'],
+                        Idr_i,
+                        Idf_i,
+                        albL_i,
+                        albS_i)
+
+                elif self.SWmodel.upper() == 'SPITTERS':
+                    SWb_i, SWd_i, \
+                    Q_sl_i, Q_sh_i, \
+                    q_sl_i, q_sh_i, q_gr_i, \
+                    f_sl, alb_i = canopy_sw_Spitters(\
+                        parameters['LAIz'],
+                        self.clump, self.leaf_angle, 
+                        forcing['zenith_angle'], 
+                        Idr_i,
+                        Idf_i,
+                        albL_i,
+                        albS_i)
+
+                    SWu_i = 0   # Spitters model doesn't give this
+
+                else:
+                    raise ValueError(f'desired SW model {self.SWmodel} is invalid')
+
+                # store sub-band results
                 SWb[:,i] = SWb_i
                 SWd[:,i] = SWd_i
                 SWu[:,i] = SWu_i
@@ -146,8 +170,8 @@ class Radiation(object):
                 Q_sh[:,i] = Q_sh_i
                 q_sl[:,i] = q_sl_i
                 q_sh[:,i] = q_sh_i
-                q_gr[:,i] = q_gr_i
-                alb[:,i] = alb_i
+                q_gr[i] = q_gr_i
+                alb[i] = alb_i
 
             # results = {'sunlit':{'incident': Q_sl, 'absorbed': q_sl, 'fraction': f_sl},
             #            'shaded':{'incident': Q_sh, 'absorbed': q_sh},
@@ -631,7 +655,7 @@ def canopy_sw_ZhaoQualls(LAIz, Clump, x, ZEN, IbSky, IdSky, LeafAlbedo, SoilAlbe
 
     return SWbo, SWdo, SWuo, Q_sl, Q_sh, q_sl, q_sh, q_soil, f_slo, alb
 
-def canopy_sw_Spitters(LAIz, Clump, x, ZEN, IbSky, IdSky, LeafAlbedo, SoilAlbedo, PlotFigs="False"):
+def canopy_sw_Spitters(LAIz, Clump, x, ZEN, IbSky, IdSky, LeafAlbedo, SoilAlbedo, PlotFigs=False):
 #ZEN, IbSky, IdSky, LAI, z, lad, x, CLUMP, LeafAlbedo, SoilAlbedo, PlotFigs="False"):
     """
     Computes profiles of incident and absorbed SW within plant canopies using analytic model of Spitters (1986)
@@ -683,7 +707,7 @@ def canopy_sw_Spitters(LAIz, Clump, x, ZEN, IbSky, IdSky, LeafAlbedo, SoilAlbedo
     IdSky = max(IdSky, 0.0001)
 
     L = Clump*LAIz  # effective layerwise LAI (or PAI) in original grid
-    Lcum = np.flipud(np.cumsum(np.flipud(L), 0.0))  # cumulative plant area from the sky, index 0 = ground
+    Lcum = np.flipud(np.cumsum(np.flipud(L), 0))  # cumulative plant area from the sky, index 0 = ground
     LAI = max(Lcum)
     #N = np.size(L, 0)  # Nr of layers
     # print L,Lcum
@@ -781,6 +805,9 @@ def canopy_sw_Spitters(LAIz, Clump, x, ZEN, IbSky, IdSky, LeafAlbedo, SoilAlbedo
         plt.legend(('sunlit', 'shaded'), loc='best')
 
     return SWb, SWd, Q_sl, Q_sh, q_sl, q_sh, q_soil, f_sl, alb
+    # return SWb[::-1], SWd[::-1], Q_sl[::-1], \
+    #     Q_sh[::-1], q_sl[::-1], q_sh[::-1], q_soil, f_sl[::-1], alb
+
 
 def compute_clouds_rad(doy, zen, Rg, H2O, Tair):
     """

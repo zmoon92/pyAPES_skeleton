@@ -193,9 +193,18 @@ def distribute_crt_quantities(nbands, banddefn,
     ds_leaf = load_default_ps5()
     ds_soil = load_default_soil()
 
+    wl_max = min((ds_solar.wl.max().values, 
+        ds_leaf.wl.max().values, ds_soil.wl.max().values))
+    # can't go beyond this or they won't overlap 
+    # 2.5 um is the max for ps5 and the soil
+    # 4 um for sp2
+
     bdf = np.asarray(banddefn)
     assert( bdf.size == 2 )
     wla, wlb = bdf[0], bdf[1]
+    if wlb > wl_max:
+        wlb = wl_max
+    #print(wla, wlb)
 
     #> set up new grid (constant dwl)
     x12_new = np.linspace(wla, wlb, nbands+1)
@@ -225,8 +234,8 @@ def distribute_crt_quantities(nbands, banddefn,
     x = ds['wl']
     r = ds['r']
     t = ds['t']
-    r_new = smear_trapz_interp(x, r, x12_new)
-    t_new = smear_trapz_interp(x, t, x12_new)
+    r_new = smear_trapz_interp(x, r, x12_new) / dx_new  # for the albedos, want band avg not sum!
+    t_new = smear_trapz_interp(x, t, x12_new) / dx_new
     albL_new = (r_new + t_new)/2  # APES wants leaf albedo, not leaf-level refl and tran
 
     #> now soil
@@ -237,7 +246,7 @@ def distribute_crt_quantities(nbands, banddefn,
     x = ds['wl']
     rho_soil = ds['rho_soil']
     # rho_soil_new = smear_trapz_interp(x, rho_soil, x12_new)
-    albS_new = smear_trapz_interp(x, rho_soil, x12_new)
+    albS_new = smear_trapz_interp(x, rho_soil, x12_new) / dx_new
 
     #> correct the re-binned spectra for consistency with the input values
 
@@ -250,10 +259,22 @@ def distribute_crt_quantities(nbands, banddefn,
     def _mean_over_x(array):
         """even with variable grid"""
         return (array*dx_new).sum() / dx_new.sum()
+        # return (array*dx_new).mean() / dx_new.sum()
 
     def _correct_for_mean(new_array, orig_scalar):
         c = orig_scalar / _mean_over_x(new_array)
         corrected = c * new_array
+        if np.any(np.isnan(corrected)):
+            print('nan in albedo!')
+            print('values:', corrected)
+            print('uncorr:', new_array)
+            print('ref   :', orig_scalar)
+        if np.any(corrected > 1.):
+            print('> 1 in albedo!')
+            print('values:', corrected)
+            print('dx_new:', dx_new)
+            print('uncorr:', new_array)
+            print('ref   :', orig_scalar)
         assert( np.isclose(_mean_over_x(corrected), orig_scalar) )
         return corrected
 
@@ -267,6 +288,7 @@ def distribute_crt_quantities(nbands, banddefn,
         else:
             #print('correcting for mean')
             corrected = _correct_for_mean(rebinned_spectrum, input_value)
+            #print('corrected:', corrected)
         rebinned_spectra_corrected.append(corrected)
 
     # return Idr, Idf, albL, albS

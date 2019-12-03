@@ -42,6 +42,8 @@ radiation = {'clump': 0.7,  # clumping index [-]
              'Nir_alb': 0.55,  # shoot NIR-albedo [-]
              'leaf_emi': 0.98,              
              'nband_to_distribute_rad': 4,  # how many sub bands to use in the SW CRT calculations 
+            #  'SWmodel': 'Spitters',  # {ZhaoQualls (default), Spitters}
+             'SWmodel': 'ZhaoQualls',
              }
 
 # --- interception --- 
@@ -172,6 +174,6 @@ cpara = {'loc': loc,
          'radiation': radiation,
          'micromet': micromet,
          'interception': interception,
-         'planttypes': {'plant1': pt1, 'plant2': pt2},
+         'planttypes': {'plant1': pt1},#, 'plant2': pt2},
          #'forestfloor': forestfloor
          }

@@ -224,6 +224,9 @@ class CanopyModel(object):
         """
         logger = logging.getLogger(__name__)
 
+        dts = parameters['date']
+        logger.debug(f'running time step {dts}')
+
         # --- solve Canopy flow ---
 
         if self.Switch_Eflow is False:
