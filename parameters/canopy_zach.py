@@ -174,6 +174,6 @@ cpara = {'loc': loc,
          'radiation': radiation,
          'micromet': micromet,
          'interception': interception,
-         'planttypes': {'plant1': pt1},#, 'plant2': pt2},
+         'planttypes': {'plant1': pt1, 'plant2': pt2},
          #'forestfloor': forestfloor
          }
