@@ -53,7 +53,9 @@ import logging
 
 def driver(create_ncf=False,
            result_file=None,
-           parametersets={}):
+           parametersets={},
+           logging_configuration={},
+           ):
     """
     Reads parameters, prepares output files, runs model.
     Args:
@@ -62,7 +64,8 @@ def driver(create_ncf=False,
         parametersets (dict): parameter sets to overwrite default parameters
     """
     # --- LOGGING ---
-    from parameters.general import logging_configuration
+    if not logging_configuration:
+        from parameters.general import logging_configuration
     from logging.config import dictConfig
     dictConfig(logging_configuration)
     #mpl_logger = logging.getLogger('matplotlib')
